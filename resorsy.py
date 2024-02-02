@@ -4,11 +4,10 @@ from math import ceil
 from typing import Optional
 from pydantic import BaseModel, field_validator
 from colorama import Fore
-from colorama import Style
 from factorio_dir import pth
 
-RESOURCE = "laser-turret"
-ITEMS_PER_SECOND = 1 / 10
+RESOURCE = "flamethrower-turret"
+ITEMS_PER_SECOND = 1 / 20
 
 LINE_WIDTH = 100
 
@@ -31,6 +30,7 @@ FORBIDDEN_ITEMS = [
 alternative_keys = {
     "electronic-circuit": "electronic-circuit-stone",
     "petroleum-gas": "basic-oil-processing",
+    # "petroleum-gas": "advanced-oil-processing",
     "glass": "glass-from-sand",
     "sand": "sand-from-stone",
     "solid-fuel": "solid-fuel-from-petroleum-gas",
@@ -153,10 +153,21 @@ def get_n_buildings(recipe: Recipe, amount_per_second: float, ) -> int:
     return ceil(amount_per_second / (speed_modifier * building_items_per_second))
 
 
-def build_line(recurrence_level: int, line: str) -> str:
+def build_line(recurrence_level: int, lines: list[tuple[str, str]]) -> str:
+    """
+    Build the line using formatted substrings.
+    First item of the tuple is formatting string, second is content.
+    """
+    text_only_len = sum(len(x[1]) for x in lines)
+    if len(lines) > 1:
+        formatted_line = f"{Fore.RESET}".join(f"{x[0]}{x[1]}" for x in lines) + Fore.RESET
+    else:
+        x = lines[0]
+        formatted_line = f"{Fore.RESET}{x[0]}{x[1]}{Fore.RESET}"
+    line_length_including_formatting = LINE_WIDTH + len(formatted_line) - text_only_len
     indent = (" " * 10 + "|") * recurrence_level
-    new_line = indent + line + " " * LINE_WIDTH
-    return new_line[:LINE_WIDTH - 1] + '|\n'
+    new_line = indent + formatted_line + " " * (line_length_including_formatting)
+    return new_line[:line_length_including_formatting - 1] + f'|{Fore.RESET}\n'
 
 
 def traverse(
@@ -168,7 +179,13 @@ def traverse(
     recipe_amount = recipe.products[recipe.name].amount
     n_buildings = get_n_buildings(recipe, amount_per_second)
     buildings_total[recipe.building.value] += n_buildings
+    try:
+        recipes_total[recipe.name] += n_buildings
+    except KeyError:
+        recipes_total[recipe.name] = n_buildings
+
     if recurrence_level > 50:
+        # FIXME this is for debug only, find a solution to work with cyclical graphs
         print("#############################################")
         print(recipe.name)
         print("ingredients")
@@ -176,18 +193,17 @@ def traverse(
             print(i.name)
     # ==============PRINTS
 
-    result.append(build_line(recurrence_level, f"{Fore.LIGHTWHITE_EX}{recurrence_level}" * 200))
-    # result.append(build_line(recurrence_level, f"{recurrence_level}" * 200))
-    # ^tu się coś brzydko pindoli ;(
+    result.append(build_line(recurrence_level, [(Fore.LIGHTWHITE_EX, f"{recurrence_level}" * 200)]))
+    result.append(build_line(recurrence_level, [(Fore.YELLOW, "Recipe: "), (Fore.LIGHTMAGENTA_EX, f"{recipe.name}")]))
+    result.append(build_line(recurrence_level, [(Fore.YELLOW, f"Required amount per second: "),
+                                                (Fore.GREEN, f"{round(amount_per_second, 3)}")]))
     result.append(build_line(recurrence_level,
-                             f"{Fore.YELLOW}Recipe:{Style.RESET_ALL} {Fore.LIGHTMAGENTA_EX}{recipe.name}{Style.RESET_ALL}"))
+                             [(Fore.YELLOW, f"Item crafting time: "), (Fore.RED,
+                                                                       f"{round(recipe.spid / (building_speed_map.get(recipe.building, None) or 1), 3)} seconds")]))
     result.append(build_line(recurrence_level,
-                             f"{Fore.YELLOW}Required amount per second:{Style.RESET_ALL} {Fore.GREEN}{round(amount_per_second, 3)}{Style.RESET_ALL}"))
-    result.append(build_line(recurrence_level,
-                             f"{Fore.YELLOW}Item crafting time:{Style.RESET_ALL} {Fore.RED}{round(recipe.spid / (building_speed_map.get(recipe.building, None) or 1), 3)} seconds{Style.RESET_ALL}"))
-    result.append(build_line(recurrence_level,
-                             f"{Fore.YELLOW}Crafted in:{Style.RESET_ALL} {Fore.LIGHTCYAN_EX}{n_buildings} * {recipe.building}{Style.RESET_ALL}"))
-    result.append(build_line(recurrence_level, "=" * 20 + "Inputs Needed" + "=" * 200))
+                             [(Fore.YELLOW, f"Crafted in: "),
+                              (Fore.LIGHTCYAN_EX, f"{n_buildings} * {recipe.building}")]))
+    result.append(build_line(recurrence_level, [(Fore.LIGHTWHITE_EX, "=" * 20 + "Inputs Needed" + "=" * LINE_WIDTH)]))
     # >>>>>>>>>>>>>>PRINTS
 
     for ing in recipe.ingredients:
@@ -203,19 +219,23 @@ def traverse(
             )
         else:
             raw_resources[ing.name] += ingredient_amount_per_second
-            result.append(build_line(recurrence_level, f"{ing.name}: {ingredient_amount_per_second:.3f}"))
+            result.append(
+                build_line(recurrence_level, [(Fore.LIGHTCYAN_EX, f"{ing.name}: {ingredient_amount_per_second:.3f}")]))
 
 
 def fix_file(raw_json: dict):
     for k, v in alternative_keys.items():
         raw_json[k] = raw_json[v]
         raw_json[k]["name"] = k
+        # if v != "advanced-oil-processing":
+        #     del raw_json[v]
         del raw_json[v]
 
 
 if __name__ == "__main__":
     raw_resources = {k.value: 0 for k in Resource}
     buildings_total = {b.value: 0 for b in Building}
+    recipes_total = {}
     with open(pth) as f:
         recipes = {}
         raw = json.load(f)
@@ -232,4 +252,5 @@ if __name__ == "__main__":
             raw_resources[k] = round(v, 3)
         print({k: v for k, v in raw_resources.items() if v > 0})
         print({k: v for k, v in buildings_total.items() if v > 0})
+        print(recipes_total)
         print(''.join(result_orig))

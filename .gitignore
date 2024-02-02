@@ -1,3 +1,4 @@
 *.idea*
 *.venv*
 factorio_dir.py
+*.pyc*
