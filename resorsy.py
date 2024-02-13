@@ -3,6 +3,8 @@ from enum import Enum
 from math import ceil
 from typing import Optional
 
+from colorama import Fore
+
 from pydantic import BaseModel, field_validator
 
 from factorio_dir import pth
@@ -192,11 +194,25 @@ class RawResourcesResult(BaseModel):
 class RecipesBuildingsResult(BaseModel):
     recipes_buildings: dict[str, dict]
 
+    def __build_line__(self, k, v, fore):
+        return f"{fore}{k}: {Fore.RESET}{v['n_buildings']} {Fore.YELLOW}{v['building']}, {Fore.RESET}items per second: {Fore.YELLOW}{round(v['items_per_second'], 2)}"
+
     def __str__(self):
         lines = [format_header("Buildings Per Recipe")]
+        space_recipes = {}
+        normal_recipes = {}
         for k, v in self.recipes_buildings.items():
-            lines.append(
-                f"{k}: {v['n_buildings']} {v['building']}, items per second: {round(v['items_per_second'], 2)}")
+            if "SPACE" in v["building"]:
+                space_recipes[k] = v
+            else:
+                normal_recipes[k] = v
+        lines.append(Fore.GREEN + "Planet/Moon:")
+        for k, v in normal_recipes.items():
+            lines.append(self.__build_line__(k, v, Fore.GREEN))
+
+        lines.append(Fore.LIGHTBLUE_EX + "Space:")
+        for k, v in space_recipes.items():
+            lines.append(self.__build_line__(k, v, Fore.LIGHTBLUE_EX))
         return "\n".join(lines)
 
 
@@ -205,8 +221,20 @@ class BuildingsTotalResult(BaseModel):
 
     def __str__(self):
         lines = [format_header("Buildings Total")]
+        space_buildings = {}
+        normal_buildings = {}
         for k, v in self.buildings_total.items():
-            lines.append(f"{k}: {round(v, 2)}")
+            if "SPACE" in k:
+                space_buildings[k] = v
+            else:
+                normal_buildings[k] = v
+
+        lines.append(Fore.GREEN + "Planet/Moon: ============")
+        for k, v in normal_buildings.items():
+            lines.append(f"{Fore.GREEN}{k}: {Fore.RESET}{round(v, 2)}")
+        lines.append(Fore.LIGHTBLUE_EX + "Space: ===================")
+        for k, v in space_buildings.items():
+            lines.append(f"{Fore.LIGHTBLUE_EX}{k}: {Fore.RESET}{round(v, 2)}")
         return "\n".join(lines)
 
 
@@ -216,7 +244,7 @@ class ByproductsResult(BaseModel):
     def __str__(self):
         lines = [format_header("Byproducts")]
         for k, v in self.byproducts.items():
-            lines.append(f"{k}: {round(v, 2)}")
+            lines.append(Fore.RED + f"{k}: {round(v, 2)}")
         return "\n".join(lines)
 
 
@@ -285,7 +313,8 @@ def remove_zeros_from_dict(d: dict) -> dict:
 
 
 def format_header(header_name: str) -> str:
-    return "#" * int(line_length_formatting / 2) + f"   {header_name}:   " + "#" * int(line_length_formatting / 2)
+    return Fore.LIGHTWHITE_EX + "#" * int(line_length_formatting / 2) + f"   {header_name}:   " + "#" * int(
+        line_length_formatting / 2)
 
 
 def run(resource: str, required_items_per_second: float):
