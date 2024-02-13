@@ -1,13 +1,5 @@
-req = 100
-light_to_pet = 2 / 3
-
-ref = (30 + 70 * 2 / 3) / 5
-
-print(req / ref)
-
 stacks = {
     "processing_unit": {"proportion": 20, "stack_size": 200},
-    "belt": {"proportion": 40, "stack_size": 100},
     "fuel": {"proportion": 20, "stack_size": 10},
     "water": {"proportion": 4, "stack_size": 10},
     "electric_motor": {"proportion": 40, "stack_size": 50},
@@ -26,8 +18,9 @@ all_stacks = sum(v["proportion"] / v["stack_size"] for v in stacks.values())
 print(all_stacks)
 
 all_slots = 0
+required_slots = 480
 for k, v in stacks.items():
-    slots = 480 * ((v["proportion"] / v["stack_size"]) / all_stacks)
+    slots = required_slots * ((v["proportion"] / v["stack_size"]) / all_stacks)
     print(f"{k}: stacks: {round(slots)}, items: {round(slots * v['stack_size'])}")
     all_slots += slots
 

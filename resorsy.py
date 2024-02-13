@@ -6,8 +6,8 @@ from pydantic import BaseModel, field_validator
 from colorama import Fore
 from factorio_dir import pth
 
-RESOURCE = "flamethrower-turret"
-ITEMS_PER_SECOND = 1 / 20
+RESOURCE = "utility-science-pack"
+ITEMS_PER_SECOND = 1
 
 LINE_WIDTH = 100
 
@@ -35,7 +35,8 @@ alternative_keys = {
     "sand": "sand-from-stone",
     "solid-fuel": "solid-fuel-from-petroleum-gas",
     "light-oil": "advanced-oil-processing",
-    "heavy-oil": "oil-processing-heavy"
+    "heavy-oil": "oil-processing-heavy",
+    "se-space-coolant-warm": "se-radiating-space-coolant-normal",
 }
 
 
@@ -53,6 +54,9 @@ class Resource(Enum):
     BIO_SLUDGE = "se-bio-sludge"
     NUTRIENT_GET = "se-nutrient-gel"
     SATELLITE_TELEMETRY = "se-satellite-telemetry"
+    CRYONITE = "se-cryonite"
+    STEAM = "steam"
+    SE_SPACE_COOLANT_HOT = "se-space-coolant-hot"
 
     def __str__(self):
         return self.value
@@ -108,7 +112,7 @@ class Building(Enum):
         return self.name
 
 
-building_speed_map = {Building.FURNACE: 2, Building.ASSEMBLER: 0.75}
+building_speed_map = {Building.FURNACE: 2, Building.ASSEMBLER: 2.75}
 
 
 class Ingredient(BaseModel):
@@ -147,9 +151,11 @@ class Recipe(BaseModel):
             return b
 
 
-def get_n_buildings(recipe: Recipe, amount_per_second: float, ) -> int:
+def get_n_buildings(recipe: Recipe, amount_per_second: float, product_name: Optional[str] = None) -> int:
+    if not product_name:
+        product_name = recipe.name
     speed_modifier = building_speed_map.get(recipe.building, None) or 1
-    building_items_per_second = recipe.products[recipe.name].amount / recipe.spid
+    building_items_per_second = recipe.products[product_name].amount / recipe.spid
     return ceil(amount_per_second / (speed_modifier * building_items_per_second))
 
 
@@ -176,13 +182,19 @@ def traverse(
         result: list[str],
         recurrence_level: int = 0,
 ):
-    recipe_amount = recipe.products[recipe.name].amount
-    n_buildings = get_n_buildings(recipe, amount_per_second)
+    product_name = None
+    if recipe.name == "se-space-coolant":
+        product_name = "se-space-coolant-hot"
+        recipe_amount = recipe.products["se-space-coolant-hot"].amount
+    else:
+        product_name = None
+        recipe_amount = recipe.products[recipe.name].amount
+    n_buildings = get_n_buildings(recipe, amount_per_second, product_name)
     buildings_total[recipe.building.value] += n_buildings
     try:
-        recipes_total[recipe.name] += n_buildings
+        recipes_total[recipe.name] += amount_per_second
     except KeyError:
-        recipes_total[recipe.name] = n_buildings
+        recipes_total[recipe.name] = amount_per_second
 
     if recurrence_level > 50:
         # FIXME this is for debug only, find a solution to work with cyclical graphs
@@ -208,6 +220,10 @@ def traverse(
 
     for ing in recipe.ingredients:
         ingredient_amount_per_second = ing.amount * amount_per_second / recipe_amount
+        if ing.name == "se-space-coolant-warm":
+            coolant_ps[ing.name] += ingredient_amount_per_second
+            # continue
+
         ing_recipe = recipes.get(ing.name, None)
 
         if ing_recipe and ing_recipe.name != recipe.name:
@@ -218,9 +234,25 @@ def traverse(
                 recurrence_level + 1,
             )
         else:
-            raw_resources[ing.name] += ingredient_amount_per_second
+            try:
+                raw_resources[ing.name] += ingredient_amount_per_second
+            except KeyError as e:
+                # DEBUG
+                print("HWDP!")
+                print(recipe)
+                for k,v in recipe.model_dump().items():
+                    print(f"{k}: {v}")
+                raise e
             result.append(
                 build_line(recurrence_level, [(Fore.LIGHTCYAN_EX, f"{ing.name}: {ingredient_amount_per_second:.3f}")]))
+
+    for p in recipe.products:
+        if p == "se-space-coolant-warm":
+            recipe = recipes[p]
+            prod_key = "se-radiating-space-coolant-normal"
+
+# def traverse_coolant(recipes_dict: dict[str, Recipe], coolant_per_second: float):
+
 
 
 def fix_file(raw_json: dict):
@@ -235,7 +267,9 @@ def fix_file(raw_json: dict):
 if __name__ == "__main__":
     raw_resources = {k.value: 0 for k in Resource}
     buildings_total = {b.value: 0 for b in Building}
+    recipes_ips_total = {}
     recipes_total = {}
+    coolant_ps = {"se-space-coolant-warm": 0}
     with open(pth) as f:
         recipes = {}
         raw = json.load(f)
@@ -248,9 +282,26 @@ if __name__ == "__main__":
         result_orig = []
         r = recipes[RESOURCE]
         traverse(r, ITEMS_PER_SECOND, result_orig)
+        print("=" * 100)
+        print("RAW RESOURCES per second:")
         for k, v in raw_resources.items():
             raw_resources[k] = round(v, 3)
         print({k: v for k, v in raw_resources.items() if v > 0})
+
+        print("=" * 100)
+        print("Buildings total:")
         print({k: v for k, v in buildings_total.items() if v > 0})
-        print(recipes_total)
+        print("=" * 100)
+        print("Buildings per recipe:")
+        for i in recipes_total.items():
+            print(i)
+        print("=" * 100)
+        print("Recycling Recipes: ")
+        if Resource.SE_SPACE_COOLANT_HOT.value in raw_resources.keys():
+            space_coolant_warm_ps = recipes_total["se-space-coolant-warm"]
+            hot_coolant_shortage = raw_resources[Resource.SE_SPACE_COOLANT_HOT.value] - space_coolant_warm_ps
+            result_orig.append("\n"*5)
+            result_orig.append("RAW COOLANT: \n\n\n")
+            traverse(recipes["se-space-coolant"], hot_coolant_shortage, result_orig, recurrence_level=1)
+        print("Recipes:")
         print(''.join(result_orig))
