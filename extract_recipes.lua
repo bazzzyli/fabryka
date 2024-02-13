@@ -9,7 +9,8 @@ for _, recipe in pairs(game.player.force.recipes) do
         building=recipe.category,
         products=products,
         ingredients=recipe.ingredients,
-        spid=recipe.energy
+        spid=recipe.energy,
+        main_product=recipe.prototype.main_product
     }
 end
 game.write_file("recipes.json",game.table_to_json(dict))
