@@ -14,7 +14,7 @@ def building_speed(base_speed: float, n_modules: int) -> float:
     return base_speed * (1 + n_modules * SPEED_MODULE_PERCENTS)
 
 
-RESOURCE = "utility-science-pack"
+RESOURCE = "production-science-pack"
 ITEMS_PER_SECOND = 1
 SPEED_MODULE_PERCENTS = 0.3
 FORMATTING_NAME = "se-formatting-1"
@@ -68,7 +68,7 @@ alternative_products_keys = {
     "se-formatting-1": "se-empty-data"
 }
 
-RECIPES_WITH_RECYCLING_TO_SKIP = {"se-space-coolant-hot"}
+RECIPES_WITH_RECYCLING_TO_SKIP = {"se-space-coolant-hot", "se-vulcanite-enriched"}
 
 
 class Resource(Enum):
@@ -260,8 +260,11 @@ def traverse(
         recipes_per_second: dict[str, float],
         raw_resources_per_second: dict[str, float],
         byproducts_per_second: dict[str, float],
-        recipes: dict[str, Recipe]
+        recipes: dict[str, Recipe],
+        recursion_level: int
 ):
+    if recursion_level > 50:
+        print("Asd")
     main_product = recipe.main_product
     if main_product is None:
         try:
@@ -295,7 +298,8 @@ def traverse(
                 recipes_per_second,
                 raw_resources_per_second,
                 byproducts_per_second,
-                recipes
+                recipes,
+                recursion_level + 1
             )
         else:
             raw_resources_per_second[ing.name] += ingredient_amount_per_second
@@ -331,7 +335,7 @@ def run(resource: str, required_items_per_second: float):
             continue
         recipes[k] = Recipe.model_validate(v)
     r = recipes[resource]
-    traverse(r, required_items_per_second, recipes_ips_total, raw_resources, byproducts, recipes)
+    traverse(r, required_items_per_second, recipes_ips_total, raw_resources, byproducts, recipes, recursion_level=0)
 
     # TODO maybe move recycling to a separate function. Implement auto-recycling? (try to get through the products back to the ingredients)
     # Fix weird SE recycling / enrichment recipes
@@ -353,7 +357,8 @@ def run(resource: str, required_items_per_second: float):
             recipes_ips_total,
             raw_resources,
             byproducts,
-            recipes
+            recipes,
+            0
         )
 
     # calculate buildings total
