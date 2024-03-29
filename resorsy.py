@@ -1,3 +1,4 @@
+import copy
 import json
 from enum import Enum
 from math import ceil
@@ -5,17 +6,19 @@ from typing import Optional
 
 from colorama import Fore
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 from factorio_dir import pth
+
+DEBUG = False
 
 
 def building_speed(base_speed: float, n_modules: int) -> float:
     return base_speed * (1 + n_modules * SPEED_MODULE_PERCENTS)
 
 
-RESOURCE = "production-science-pack"
-ITEMS_PER_SECOND = 1
+RESOURCE = "se-astronomic-science-pack-1"
+ITEMS_PER_SECOND = 1 / 240
 SPEED_MODULE_PERCENTS = 0.3
 FORMATTING_NAME = "se-formatting-1"
 BUILDING_SPEED_MAP = {
@@ -29,7 +32,17 @@ BUILDING_SPEED_MAP = {
     "space-decontamination": building_speed(base_speed=2, n_modules=4),
     "pulverising": building_speed(base_speed=2, n_modules=4),
     "oil-processing": building_speed(base_speed=1, n_modules=3),
-    "chemistry": building_speed(base_speed=1, n_modules=3)
+    "chemistry": building_speed(base_speed=1, n_modules=3),
+    "casting": building_speed(base_speed=1, n_modules=2),
+    "space-plasma": building_speed(base_speed=1, n_modules=4),
+    "space-observation": building_speed(base_speed=2, n_modules=4)
+}
+
+INSIGHT_TIERS = {
+    "energy": 1,
+    "biological": 1,
+    "astronomic": 1,
+    "material": 1
 }
 
 #####################################
@@ -53,7 +66,6 @@ FORBIDDEN_ITEMS = [
 alternative_keys = {
     "electronic-circuit": "electronic-circuit-stone",
     "petroleum-gas": "basic-oil-processing",
-    # "petroleum-gas": "advanced-oil-processing",
     "glass": "glass-from-sand",
     "sand": "sand-from-stone",
     "solid-fuel": "solid-fuel-from-petroleum-gas",
@@ -61,14 +73,33 @@ alternative_keys = {
     "heavy-oil": "oil-processing-heavy",
     "se-space-coolant-warm": "se-radiating-space-coolant-normal",
     "se-space-coolant-hot": "se-space-coolant",
-    "se-data-storage-substrate-cleaned": "se-data-storage-substrate-cleaned-chemical"
+    "se-data-storage-substrate-cleaned": "se-data-storage-substrate-cleaned-chemical",
+    "se-holmium-plate": "se-holmium-ingot-to-plate",
+    "se-bio-sludge": "se-bio-sludge-from-wood",
+    "se-beryllium-plate": "se-beryllium-ingot-to-plate",
+    # INSIGHTS!
+    "se-energy-insight": f"se-energy-insight-{INSIGHT_TIERS['energy']}",
+    "se-material-insight": f"se-material-insight-{INSIGHT_TIERS['material']}",
+    "se-biological-insight": f"se-biological-insight-{INSIGHT_TIERS['biological']}",
+    "se-astronomic-insight": f"se-astronomic-insight-{INSIGHT_TIERS['astronomic']}",
+    "se-astrometric-data": f"se-astrometric-analysis-multispectral-{INSIGHT_TIERS['astronomic']}",
 }
+
+# check for significant data
+if "energy-science-pack" in RESOURCE:
+    alternative_keys["se-significant-data"] = "se-simulation-s"
+elif "material-science-pack" in RESOURCE:
+    alternative_keys["se-significant-data"] = "se-simulation-m"
+elif "biological-science-pack" in RESOURCE:
+    alternative_keys["se-significant-data"] = "se-simulation-b"
+elif "astronomic-science-pack" in RESOURCE:
+    alternative_keys["se-significant-data"] = "se-simulation-a"
 
 alternative_products_keys = {
     "se-formatting-1": "se-empty-data"
 }
 
-RECIPES_WITH_RECYCLING_TO_SKIP = {"se-space-coolant-hot", "se-vulcanite-enriched"}
+RECIPES_WITH_RECYCLING_TO_SKIP = {"se-space-coolant-hot", "se-vulcanite-enriched", "se-vitamelange-extract"}
 
 
 class Resource(Enum):
@@ -88,6 +119,12 @@ class Resource(Enum):
     CRYONITE = "se-cryonite"
     STEAM = "steam"
     SE_SPACE_COOLANT_HOT = "se-space-coolant-hot"
+    BERYLLIUM = "se-beryllium-ore"
+    HOLMIUM = "se-holmium-ore"
+    URANIUM_235 = "uranium-235"
+    VITAMELANGE = "se-vitamelange"
+    VITAMELANGE_EXTRACT = "se-vitamelange-extract"
+    WOOD = "wood"
 
     def __str__(self):
         return self.value
@@ -147,13 +184,20 @@ class Building(Enum):
 class Ingredient(BaseModel):
     name: str
     type: str
-    amount: Optional[int] = None
+    amount: Optional[float] = None
 
 
 class Product(Ingredient):
     probability: float
     amount_min: Optional[int] = None
     amount_max: Optional[int] = None
+
+    @model_validator(mode="after")
+    def validate_product(self):
+        if self.amount_max is not None:
+            amount = self.amount_min + (self.amount_max - self.amount_min) / 2
+            self.amount = amount
+        return self
 
 
 class Recipe(BaseModel):
@@ -261,10 +305,13 @@ def traverse(
         raw_resources_per_second: dict[str, float],
         byproducts_per_second: dict[str, float],
         recipes: dict[str, Recipe],
-        recursion_level: int
+        recursion_level: int,
+        backwards_multipler: int = 1
+        # pretty fucked up, it's used to traverse back and subtract values in recycling stage
 ):
-    if recursion_level > 50:
-        print("Asd")
+    if recursion_level < 500 and DEBUG:
+        print((" " * 3 * recursion_level) + recipe.name)
+
     main_product = recipe.main_product
     if main_product is None:
         try:
@@ -272,10 +319,10 @@ def traverse(
         except KeyError:
             # try alternative products keys
             main_product = recipe.products[alternative_products_keys[recipe.name]]
-    recipe_amount = main_product.amount * main_product.probability
+    recipe_amount = main_product.amount * main_product.probability * backwards_multipler
 
     try:
-        recipes_per_second[recipe.name] += amount_per_second
+        recipes_per_second[recipe.name] += amount_per_second * backwards_multipler
     except KeyError:
         recipes_per_second[recipe.name] = amount_per_second
 
@@ -286,7 +333,6 @@ def traverse(
                 byproducts_per_second[p.name] += product_ps
             except KeyError:
                 byproducts_per_second[p.name] = product_ps
-
     for ing in recipe.ingredients:
         ingredient_amount_per_second = ing.amount * amount_per_second / recipe_amount
         ing_recipe = recipes.get(ing.name, None)
@@ -302,7 +348,11 @@ def traverse(
                 recursion_level + 1
             )
         else:
-            raw_resources_per_second[ing.name] += ingredient_amount_per_second
+            if ing.name == "se-space-coolant-hot":
+                if ing.name not in raw_resources_per_second:
+                    raw_resources_per_second[ing.name] = 0
+            else:
+                raw_resources_per_second[ing.name] += ingredient_amount_per_second
 
 
 def fix_file(raw_json: dict):
@@ -345,10 +395,32 @@ def run(resource: str, required_items_per_second: float):
         formatting_recipe = recipes[FORMATTING_NAME]
         formatting_recipe.products[FORMATTING_NAME] = formatting_recipe.products["se-empty-data"]
         blank_cards_amount = junk_cards_ps * formatting_recipe.products["se-empty-data"].probability
-        recipes_ips_total["se-empty-data"] -= blank_cards_amount
+        traverse(
+            recipe=recipes["se-empty-data"],
+            amount_per_second=blank_cards_amount,
+            recipes_per_second=recipes_ips_total,
+            raw_resources_per_second=raw_resources,
+            byproducts_per_second=byproducts,
+            recipes=recipes,
+            recursion_level=0,
+            backwards_multipler=-1
+        )
         recipes_ips_total[FORMATTING_NAME] = junk_cards_ps
 
-    if Resource.SE_SPACE_COOLANT_HOT.value in raw_resources.keys():
+    for b, ips in byproducts.items():
+        if b in recipes_ips_total:
+            traverse(
+                recipe=recipes[b],
+                amount_per_second=ips,
+                recipes_per_second=recipes_ips_total,
+                raw_resources_per_second=raw_resources,
+                byproducts_per_second=byproducts,
+                recipes=recipes,
+                recursion_level=0,
+                backwards_multipler=-1
+            )
+
+    if raw_resources[Resource.SE_SPACE_COOLANT_HOT.value] > 0:
         space_coolant_warm_ps = recipes_ips_total["se-space-coolant-warm"]
         hot_coolant_shortage = raw_resources[Resource.SE_SPACE_COOLANT_HOT.value] - space_coolant_warm_ps
         traverse(
