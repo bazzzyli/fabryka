@@ -17,13 +17,26 @@ def building_speed(base_speed: float, n_modules: int) -> float:
     return base_speed * (1 + n_modules * SPEED_MODULE_PERCENTS)
 
 
-RESOURCE = "se-astronomic-science-pack-1"
-ITEMS_PER_SECOND = 1 / 240
+class MOD_TYPE(Enum):
+    SPACE_EXPLORATION = "space_exploration"
+    VANILLA = "vanilla"
+
+
+MODS = [
+    MOD_TYPE.VANILLA,
+    # MOD_TYPE.SPACE_EXPLORATION,
+]
+
+
+RESOURCE = "stone-wall"
+ITEMS_PER_SECOND = 1
 SPEED_MODULE_PERCENTS = 0.3
 FORMATTING_NAME = "se-formatting-1"
 BUILDING_SPEED_MAP = {
-    "smelting": building_speed(base_speed=4, n_modules=5),
-    "crafting": building_speed(base_speed=1.25, n_modules=4),
+    "smelting": building_speed(base_speed=1, n_modules=0),
+    "crafting": building_speed(base_speed=0.5, n_modules=0),
+    "oil-processing": building_speed(base_speed=1, n_modules=3),
+    "chemistry": building_speed(base_speed=1, n_modules=3),
     "space-crafting": building_speed(base_speed=1.25, n_modules=4),
     "space-supercomputing": building_speed(base_speed=1, n_modules=2),
     "space-manufacturing": building_speed(base_speed=10, n_modules=6),
@@ -31,8 +44,6 @@ BUILDING_SPEED_MAP = {
     "space-radiation": building_speed(base_speed=1, n_modules=2),
     "space-decontamination": building_speed(base_speed=2, n_modules=4),
     "pulverising": building_speed(base_speed=2, n_modules=4),
-    "oil-processing": building_speed(base_speed=1, n_modules=3),
-    "chemistry": building_speed(base_speed=1, n_modules=3),
     "casting": building_speed(base_speed=1, n_modules=2),
     "space-plasma": building_speed(base_speed=1, n_modules=4),
     "space-observation": building_speed(base_speed=2, n_modules=4)
@@ -45,7 +56,7 @@ INSIGHT_TIERS = {
     "material": 1
 }
 
-#####################################
+#####################################q
 #    H   H  W   W  DDDD   PPPP      #
 #    H   H  W   W  D   D  P   P     #
 #    HHHHH  W W W  D   D  PPPP      #
@@ -356,10 +367,11 @@ def traverse(
 
 
 def fix_file(raw_json: dict):
-    for k, v in alternative_keys.items():
-        raw_json[k] = raw_json[v]
-        raw_json[k]["name"] = k
-        del raw_json[v]
+    if MOD_TYPE.SPACE_EXPLORATION in MODS:
+        for k, v in alternative_keys.items():
+            raw_json[k] = raw_json[v]
+            raw_json[k]["name"] = k
+            del raw_json[v]
 
 
 def remove_zeros_from_dict(d: dict) -> dict:
