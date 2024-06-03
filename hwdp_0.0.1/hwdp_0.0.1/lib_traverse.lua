@@ -8,6 +8,9 @@ function get_main_product(recipe_prototype)
             if recipe_prototype.name == "advanced-oil-processing" and p.name == "light-oil" then
                 return p
             end
+            if recipe_prototype.name == "basic-oil-processing" and p.name == "petroleum-gas" then
+                return p
+            end
             if p.name == recipe_prototype.name then
                 return p
             end
@@ -56,6 +59,9 @@ function traverse(
         backwards_multipler
 )
     local main_product = get_main_product(recipe.prototype)
+    --log("recipe: " .. recipe.name)
+    --log("main product: " .. main_product.name)
+    --log("#############################")
     local recipe_amount = main_product.amount * main_product.probability * backwards_multipler
     local recipe_summary = recipes_summary[recipe.name]
     if recipe_summary == nil then

@@ -90,10 +90,12 @@ script.on_event(defines.events.on_gui_click, function(event)
             local crafting_category = recipe_summary["crafting_category"]
             if crafting_category_building_map[crafting_category] == nil then
                 local max_building_speed = -1
+                local n_modules = -1
                 for _, entity in pairs(game.get_filtered_entity_prototypes { { filter = "crafting-category", crafting_category = crafting_category } }) do
-                    if check_if_entity_prototype_maps_to_recipe(entity.name) and player.force.recipes[entity.name].enabled == true and entity.crafting_speed > max_building_speed then
+                    if check_if_entity_prototype_maps_to_recipe(entity.name) and player.force.recipes[entity.name].enabled == true and entity.crafting_speed > max_building_speed or (entity.crafting_speed == max_building_speed and entity.module_inventory_size > n_modules) then
                         max_building_speed = entity.crafting_speed
                         crafting_category_building_map[crafting_category] = entity
+                        n_modules = entity.module_inventory_size
                     end
                 end
             end
@@ -110,18 +112,35 @@ script.on_event(defines.events.on_gui_click, function(event)
         local best_productivity = 0
         local best_speed_module
         local best_speed_bonus = 0
-        for _, rec in pairs(game.get_filtered_recipe_prototypes { { filter = "enabled" }, { filter = "subgroup", subgroup = "module", mode = "and" } }) do
-            local module = game.item_prototypes[rec.name]
-            local prod_bonus = module.module_effects.productivity.bonus
-            local speed_bonus = module.module_effects.speed.bonus
-            if string.find(rec.name, "productivity") and prod_bonus > best_productivity then
-                best_productivity = prod_bonus
-                best_prod_module = module
+        local beacon_slots=-1
+        log("listing modules:")
+        for _, rec in pairs(game.get_filtered_recipe_prototypes { { filter = "subgroup", subgroup = "module"} }) do
+            log("#################")
+            log("module name: " .. rec.name)
+            if player.force.recipes[rec.name].enabled == true then
+                local module = game.item_prototypes[rec.name]
+                if module.module_effects ~= nil then
+                    if string.find(rec.name, "productivity") and module.module_effects.productivity.bonus > best_productivity then
+                        best_productivity = module.module_effects.productivity.bonus
+                        best_prod_module = module
+                        log("highest prod bonus: " .. best_productivity)
+                        log("highest prod module name: " .. best_prod_module.name)
+                    end
+                    if string.find(rec.name, "speed") and module.module_effects.speed.bonus > best_speed_bonus then
+                        best_speed_bonus = module.module_effects.speed.bonus
+                        best_speed_module = module
+                        log("highest speed bonus: " .. best_speed_bonus)
+                        log("highest speed module name: " .. best_speed_module.name)
+                    end
+                else
+                    -- it's a beacon!
+                    log("beacon lol!")
+                    local prot = game.entity_prototypes[rec.name]
+                    beacon_slots = prot.module_inventory_size
+                end
             end
-            if string.find(rec.name, "speed") and speed_bonus > best_speed_bonus then
-                best_speed_bonus = speed_bonus
-                best_speed_module = module
-            end
+            log("#################")
+
         end
 
         -- get number of buildings
@@ -144,8 +163,18 @@ script.on_event(defines.events.on_gui_click, function(event)
                     -- possible to use productivity modules
                     productivity_bonus = 1 + best_productivity * building.module_inventory_size
                     speed_bonus = 1 + best_prod_module.module_effects.speed.bonus * building.module_inventory_size
+                    log("speed bonus before beacon: " .. speed_bonus)
+                    if beacon_slots then
+                        speed_bonus = speed_bonus + (best_speed_module.module_effects.speed.bonus * beacon_slots / 2)
+                        log("speed bonus after beacon: " .. speed_bonus)
+                    end
                 elseif best_speed_module ~= nil then
                     speed_bonus = 1 + best_speed_module.module_effects.speed.bonus * building.module_inventory_size
+                    log("speed bonus before beacon: " .. speed_bonus)
+                    if beacon_slots then
+                        speed_bonus = speed_bonus + (best_speed_module.module_effects.speed.bonus * beacon_slots / 2)
+                        log("speed bonus after beacon: " .. speed_bonus)
+                    end
                 end
 
                 local items_per_second_per_building = productivity_bonus * main_product.amount / r.energy
