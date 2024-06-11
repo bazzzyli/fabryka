@@ -18,7 +18,7 @@ end
 function build_interface(player)
     local player_global = global.players[player.index]
     local screen_element = player.gui.screen
-    local main_frame = screen_element.add { type = "frame", name = "main_frame", caption = "jebać leszczy" }
+    local main_frame = screen_element.add { type = "frame", name = "main_frame", caption = "jebać leszczyxxxxx" }
     main_frame.style.size = { 800, 1000 }
 
     player.opened = main_frame
