@@ -25,7 +25,7 @@ function build_interface(player)
 
     local content_frame = main_frame.add { type = "frame", name = "content_frame", direction = "vertical", style = "content_frame" }
     local controls_flow = content_frame.add { type = "flow", name = "controls_flow", direction = "vertical", style = "controls_flow" }
-    local constraints_flow = content_frame.add { type = "scroll-pane", name = "constraints_flow", direction = "vertical"}
+    local constraints_flow = content_frame.add { type = "scroll-pane", name = "constraints_flow", direction = "vertical" }
     -- get persisted search, if any
     local recipe_name = global.players[player.index].selected_recipe
     local recipe_ips = global.players[player.index].selected_ips or 0
@@ -45,24 +45,30 @@ function build_interface(player)
     local speed_modules = constraints_flow.add { type = "drop-down", name = "speed_modules" }
     for i, s in ipairs(global.players[player.index].unlocked_speed_modules) do
         speed_modules.add_item(s, i)
+        if s == global.players[player.index].max_speed_module then
+            speed_modules.selected_index = i
+        end
     end
-    speed_modules.selected_index = 1
 
     -- prod modules
     constraints_flow.add { type = "label", caption = "Choose highest productivity module:" }
     local productivity_modules = constraints_flow.add { type = "drop-down", name = "productivity_modules" }
     for i, p in ipairs(global.players[player.index].unlocked_productivity_modules) do
         productivity_modules.add_item(p, i)
+        if p == global.players[player.index].max_productivity_module then
+            productivity_modules.selected_index = i
+        end
     end
-    productivity_modules.selected_index = 1
 
     -- beacons
     constraints_flow.add { type = "label", caption = "Choose highest beacon:" }
     local beacons = constraints_flow.add { type = "drop-down", name = "beacons" }
     for i, s in ipairs(global.players[player.index].unlocked_beacons) do
         beacons.add_item(s, i)
+        if s == global.players[player.index].max_beacon then
+            beacons.selected_index = i
+        end
     end
-    beacons.selected_index = 1
 
     content_frame.add { type = "line" }
 
@@ -73,7 +79,15 @@ function build_interface(player)
             constraints_flow.add { type = "label", caption = category }
             local category_dropdown = constraints_flow.add { type = "drop-down", name = category }
             category_dropdown.items = buildings
-            category_dropdown.selected_index = #buildings
+            if global.players[player.index].crafting_category_selected_building[category] ~= nil then
+                for i, building_name in ipairs(buildings) do
+                    if building_name == global.players[player.index].crafting_category_selected_building[category] then
+                        category_dropdown.selected_index = i
+                    end
+                end
+            else
+                category_dropdown.selected_index = #buildings
+            end
         end
     end
 

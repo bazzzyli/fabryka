@@ -29,7 +29,6 @@ function get_unlocked_beacons(player)
 end
 
 function create_crafting_category_to_buildings_map(player)
-    --player = game.player
     if global.players[player.index].crafting_category_selected_building == nil then
         global.players[player.index].crafting_category_selected_building = {}
     end
