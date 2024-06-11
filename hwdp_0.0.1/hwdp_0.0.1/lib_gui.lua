@@ -25,7 +25,7 @@ function build_interface(player)
 
     local content_frame = main_frame.add { type = "frame", name = "content_frame", direction = "vertical", style = "content_frame" }
     local controls_flow = content_frame.add { type = "flow", name = "controls_flow", direction = "vertical", style = "controls_flow" }
-
+    local constraints_flow = content_frame.add { type = "scroll-pane", name = "constraints_flow", direction = "vertical"}
     -- get persisted search, if any
     local recipe_name = global.players[player.index].selected_recipe
     local recipe_ips = global.players[player.index].selected_ips or 0
@@ -38,8 +38,50 @@ function build_interface(player)
     controls_flow.add { type = "label", caption = "Required items per second:" }
     controls_flow.add { type = "textfield", name = "ips_textfield", text = tostring(recipe_ips), numeric = true, allow_decimal = true, allow_negative = false, style = "controls_textfield", enabled = player_global.controls_active }
     controls_flow.add { type = "line" }
-    controls_flow.add { type = "button", name = "run_recipes", caption = "hwdp" }
-    controls_flow.add { type = "line" }
+
+    -- ADD CONSTRAINTS
+    -- speed modules
+    constraints_flow.add { type = "label", caption = "Choose highest speed module:" }
+    local speed_modules = constraints_flow.add { type = "drop-down", name = "speed_modules" }
+    for i, s in ipairs(global.players[player.index].unlocked_speed_modules) do
+        speed_modules.add_item(s, i)
+    end
+    speed_modules.selected_index = 1
+
+    -- prod modules
+    constraints_flow.add { type = "label", caption = "Choose highest productivity module:" }
+    local productivity_modules = constraints_flow.add { type = "drop-down", name = "productivity_modules" }
+    for i, p in ipairs(global.players[player.index].unlocked_productivity_modules) do
+        productivity_modules.add_item(p, i)
+    end
+    productivity_modules.selected_index = 1
+
+    -- beacons
+    constraints_flow.add { type = "label", caption = "Choose highest beacon:" }
+    local beacons = constraints_flow.add { type = "drop-down", name = "beacons" }
+    for i, s in ipairs(global.players[player.index].unlocked_beacons) do
+        beacons.add_item(s, i)
+    end
+    beacons.selected_index = 1
+
+    content_frame.add { type = "line" }
+
+    -- buildings
+    constraints_flow.add { type = "label", caption = "Choose building for crafting category:" }
+    for category, buildings in pairs(global.players[player.index].crafting_category_building_map) do
+        if #buildings > 1 then
+            constraints_flow.add { type = "label", caption = category }
+            local category_dropdown = constraints_flow.add { type = "drop-down", name = category }
+            category_dropdown.items = buildings
+            category_dropdown.selected_index = #buildings
+        end
+    end
+
+    -- CONSTRAINTS DONE
+
+    -- run button
+    content_frame.add { type = "button", name = "run_recipes", caption = "hwdp" }
+    content_frame.add { type = "line" }
 
     -- results components
     local result_frame = main_frame.add { type = "frame", name = "result_frame", style = "content_frame", caption = "results:" }

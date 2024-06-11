@@ -31,4 +31,9 @@ n_tanks_before_heat_up_outer = cell_time / (tank_capacity / (outer_turbines*turb
 
 print(n_tanks_before_heat_up_outer)
 
+n_reactors = 6
+inner = n_reactors - 4
+turbines = 4 * 20 + inner * 27
+exchangers = 4 * 12 + inner * 16
 
+print(f"reactors: {n_reactors}, turbines: {turbines}, hexchangers: {exchangers}")

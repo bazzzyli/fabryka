@@ -24,17 +24,17 @@ class MOD_TYPE(Enum):
 
 MODS = [
     MOD_TYPE.VANILLA,
-    # MOD_TYPE.SPACE_EXPLORATION,
+    MOD_TYPE.SPACE_EXPLORATION,
 ]
 
 
-RESOURCE = "stone-wall"
-ITEMS_PER_SECOND = 1
+RESOURCE = "se-data-storage-substrate"
+ITEMS_PER_SECOND = 10
 SPEED_MODULE_PERCENTS = 0.3
 FORMATTING_NAME = "se-formatting-1"
 BUILDING_SPEED_MAP = {
-    "smelting": building_speed(base_speed=1, n_modules=0),
-    "crafting": building_speed(base_speed=0.5, n_modules=0),
+    "smelting": building_speed(base_speed=4, n_modules=4),
+    "crafting": building_speed(base_speed=1.25, n_modules=4),
     "oil-processing": building_speed(base_speed=1, n_modules=3),
     "chemistry": building_speed(base_speed=1, n_modules=3),
     "space-crafting": building_speed(base_speed=1.25, n_modules=4),
@@ -213,15 +213,15 @@ class Product(Ingredient):
 
 class Recipe(BaseModel):
     name: str
-    building: Building
+    category: Building
     products: dict[str, Product]
     ingredients: list[Ingredient]
     spid: float
     main_product: Optional[Product] = None
 
-    @field_validator("building", mode="before")
+    @field_validator("category", mode="before")
     @classmethod
-    def validate_building(cls, b: str, _):
+    def validate_category(cls, b: str, _):
         if b == "kiln":
             return "smelting"
         elif "crafting" in b and "space" not in b:
@@ -304,7 +304,7 @@ class ByproductsResult(BaseModel):
 
 
 def get_n_buildings(recipe: Recipe, amount_per_second: float) -> int:
-    speed_modifier = BUILDING_SPEED_MAP.get(recipe.building.value, None) or 1
+    speed_modifier = BUILDING_SPEED_MAP.get(recipe.category.value, None) or 1
     building_items_per_second = recipe.products[recipe.name].amount / recipe.spid
     return ceil(amount_per_second / (speed_modifier * building_items_per_second))
 
@@ -393,7 +393,7 @@ def run(resource: str, required_items_per_second: float):
         raw = json.load(f)
     fix_file(raw)
     for k, v in raw.items():
-        if k in FORBIDDEN_ITEMS or v["building"] == "fixed-recipe":
+        if k in FORBIDDEN_ITEMS or v["category"] == "fixed-recipe":
             continue
         recipes[k] = Recipe.model_validate(v)
     r = recipes[resource]
@@ -450,8 +450,8 @@ def run(resource: str, required_items_per_second: float):
     for r, v in recipes_ips_total.items():
         recipe = recipes.get(r)
         n_buildings = get_n_buildings(recipe, v)
-        buildings_total[recipe.building.name] += n_buildings
-        recipes_buildings[recipe.name] = {"n_buildings": n_buildings, "building": recipe.building.name,
+        buildings_total[recipe.category.name] += n_buildings
+        recipes_buildings[recipe.name] = {"n_buildings": n_buildings, "building": recipe.category.name,
                                           "items_per_second": v}
 
     return (

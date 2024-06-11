@@ -7,6 +7,7 @@
 ---
 require("lib_traverse")
 require("lib_gui")
+require("lib_buildings")
 
 BUILDING_NOT_RESEARCHED = "building not researched, you fag!"
 
@@ -22,6 +23,14 @@ local function initialize_global(player)
     global.players[player.index].recipes_buildings = nil
     global.players[player.index].byproducts = nil
     global.players[player.index].raw_resources = nil
+    global.players[player.index].unlocked_productivity_modules = {}
+    global.players[player.index].unlocked_speed_modules = {}
+    global.players[player.index].unlocked_beacons = {}
+    global.players[player.index].max_productivity_module = nil
+    global.players[player.index].max_speed_module = nil
+    global.players[player.index].max_beacon = nil
+    global.players[player.index].crafting_category_building_map = {}
+    global.players[player.index].crafting_category_selected_building = {}
 end
 
 script.on_init(function()
@@ -40,8 +49,38 @@ script.on_event(defines.events.on_player_removed, function(event)
     global.players[event.player_index] = nil
 end)
 
-script.on_event("toggle_interface", function(event)
+script.on_event(defines.events.on_gui_selection_state_changed, function(event)
     local player = game.get_player(event.player_index)
+    local selected_index = event.element.selected_index
+    local item = event.element.items[selected_index]
+    if event.element.name == "productivity_modules" then
+        global.players[player.index].max_productivity_module = item
+    elseif event.element.name == "speed_modules" then
+        global.players[player.index].max_speed_module = item
+    elseif event.element.name == "beacons" then
+        global.players[player.index].max_beacon = item
+    else
+        -- buildings
+        global.players[player.index].crafting_category_selected_building[event.element.name] = item
+    end
+end)
+
+script.on_event("toggle_interface", function(event)
+    -- Basically an entrypoint to the calculator. Consider moving setup to a separate function.
+    local player = game.get_player(event.player_index)
+    local prod = get_unlocked_productivity_modules(player)
+    local speed = get_unlocked_speed_modules(player)
+    local beacons = get_unlocked_beacons(player)
+    local crafting_to_buildings_map = create_crafting_category_to_buildings_map(player)
+
+    for category, buildings in pairs(crafting_to_buildings_map) do
+        global.players[player.index].crafting_category_selected_building[category] = buildings[#buildings]
+    end
+
+    global.players[player.index].unlocked_productivity_modules = prod
+    global.players[player.index].unlocked_speed_modules = speed
+    global.players[player.index].unlocked_beacons = beacons
+    global.players[player.index].crafting_category_building_map = crafting_to_buildings_map
     toggle_interface(player)
 end)
 
@@ -153,7 +192,7 @@ script.on_event(defines.events.on_gui_click, function(event)
                 recipes_buildings[rec_name] = { n_buildings = 0, building = BUILDING_NOT_RESEARCHED,
                                                 items_per_second = recipe_summary.ips }
             else
-                -- calculate how many buildings are needed to produce that recipe at required throughput
+                -- calculate how many buildings are needed to produce that recipe at desired throughput
                 local r = game.recipe_prototypes[rec_name]
                 local main_product = get_main_product(r)
                 local productivity_bonus = 1
