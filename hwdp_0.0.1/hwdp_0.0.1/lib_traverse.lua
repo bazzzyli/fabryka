@@ -19,6 +19,15 @@ function get_main_product(recipe_prototype)
     return main_product
 end
 
+function get_product_amount(product)
+    local product_amount = product.amount
+    if product_amount == nil then
+        product_amount = (product.amount_max - product.amount_min) / 2
+    else
+        product_amount = product_amount * product.probability
+    end
+    return product_amount
+end
 
 function handle_alternative_keys(recipe_name)
     local alt_keys = {}
@@ -56,24 +65,29 @@ function traverse(
         raw_resources_per_second,
         byproducts_per_second,
         recursion_level,
-        backwards_multipler
+        backwards_multiplier
 )
     local main_product = get_main_product(recipe.prototype)
     --log("recipe: " .. recipe.name)
     --log("main product: " .. main_product.name)
     --log("#############################")
-    local recipe_amount = main_product.amount * main_product.probability * backwards_multipler
+    local main_product_amount = get_product_amount(main_product)
+    main_product.amount = main_product_amount
+    local recipe_amount = main_product_amount * backwards_multiplier
     local recipe_summary = recipes_summary[recipe.name]
     if recipe_summary == nil then
-        recipes_summary[recipe.name] = { ips = amount_per_second, crafting_category = recipe.category }
+        recipes_summary[recipe.name] = { ips = amount_per_second,
+                                         crafting_category = recipe.category,
+                                         main_product = main_product }
     else
-        recipes_summary[recipe.name]["ips"] = recipe_summary["ips"] + amount_per_second * backwards_multipler
+        recipes_summary[recipe.name]["ips"] = recipe_summary["ips"] + amount_per_second * backwards_multiplier
     end
 
     -- handle byproducts
     for _, p in ipairs(recipe.products) do
         if p.name ~= main_product.name then
-            local product_ps = amount_per_second * p.amount * p.probability / recipe_amount
+            local product_amount = get_product_amount(p)
+            local product_ps = amount_per_second * product_amount / recipe_amount
             local byproduct_ps = byproducts_per_second[p.name]
             if byproduct_ps == nil then
                 byproducts_per_second[p.name] = product_ps
@@ -109,7 +123,7 @@ function traverse(
                     raw_resources_per_second,
                     byproducts_per_second,
                     recursion_level + 1,
-                    backwards_multipler
+                    backwards_multiplier
             )
         end
     end
