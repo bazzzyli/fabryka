@@ -47,18 +47,18 @@ function handle_alternative_keys(recipe_name)
     return alt_keys[recipe_name]
 end
 
-function should_skip_recycling_recipe(recipe_name)
+function should_skip_recipe(player, recipe_name)
     local recycling_recipes_to_skip = { "se-space-coolant-hot", "se-vulcanite-enriched", "se-vitamelange-extract" }
     for _, skip in ipairs(recycling_recipes_to_skip) do
         if recipe_name == skip then
             return true
         end
     end
-    return false
+    return global.players[player.index].recipes_to_skip[recipe_name] ~= nil
 end
 
 function traverse(
-        recipes,
+        player,
         recipe,
         amount_per_second,
         recipes_summary,
@@ -67,6 +67,7 @@ function traverse(
         recursion_level,
         backwards_multiplier
 )
+    local recipes = player.force.recipes
     local main_product = get_main_product(recipe.prototype)
     --log("recipe: " .. recipe.name)
     --log("main product: " .. main_product.name)
@@ -107,7 +108,7 @@ function traverse(
         end
         local ing_recipe = recipes[ing_name]
 
-        if ing_recipe == nil or should_skip_recycling_recipe(ing.name) then
+        if ing_recipe == nil or should_skip_recipe(player, ing.name) then
             local raw_ips = raw_resources_per_second[ing.name]
             if raw_ips == nil then
                 raw_resources_per_second[ing.name] = ingredient_amount_per_second
@@ -116,7 +117,7 @@ function traverse(
             end
         else
             traverse(
-                    recipes,
+                    player,
                     ing_recipe,
                     ingredient_amount_per_second,
                     recipes_summary,

@@ -31,6 +31,51 @@ local function initialize_global(player)
     global.players[player.index].max_beacon = nil
     global.players[player.index].crafting_category_building_map = {}
     global.players[player.index].crafting_category_selected_building = {}
+    global.players[player.index].recipes_to_skip = {}
+end
+
+local function run_recipes(player)
+    local controls_flow = player.gui.screen.main_frame.content_frame.controls_flow
+    local recipe_name = controls_flow.choose_recipe.elem_value
+    if recipe_name == nil then
+        recipe_name = global.players[player.index].selected_recipe
+    end
+
+    local recipe_ips = controls_flow.ips_textfield.text
+
+    -- persist search in global table and clear results
+    global.players[player.index].selected_recipe = recipe_name
+    global.players[player.index].selected_ips = recipe_ips
+    global.players[player.index].recipes_buildings = nil
+    global.players[player.index].byproducts = nil
+    global.players[player.index].raw_resources = nil
+
+
+    local raw_resources_per_second = {}
+    local recipes_summary = {}
+    local recipes_buildings = {}
+    local byproducts = {}
+
+    -- now retrieve recipe
+    local recipe = player.force.recipes[recipe_name]
+    traverse(
+            player,
+            recipe,
+            recipe_ips,
+            recipes_summary,
+            raw_resources_per_second,
+            byproducts,
+            0,
+            1
+    )
+
+    recipes_buildings = get_buildings_per_recipe(player, recipes_summary)
+    -- persist results in global table
+    global.players[player.index].recipes_buildings = recipes_buildings
+    global.players[player.index].byproducts = byproducts
+    global.players[player.index].raw_resources = raw_resources_per_second
+    -- draw results
+    draw_results(player.index)
 end
 
 script.on_init(function()
@@ -96,47 +141,18 @@ end)
 script.on_event(defines.events.on_gui_click, function(event)
     if event.element.name == "run_recipes" then
         local player = game.get_player(event.player_index)
-        local controls_flow = player.gui.screen.main_frame.content_frame.controls_flow
-        local recipe_name = controls_flow.choose_recipe.elem_value
-        if recipe_name == nil then
-            recipe_name = global.players[player.index].selected_recipe
-        end
-
-        local recipe_ips = controls_flow.ips_textfield.text
-
-        -- persist search in global table and clear results
-        global.players[player.index].selected_recipe = recipe_name
-        global.players[player.index].selected_ips = recipe_ips
-        global.players[player.index].recipes_buildings = nil
-        global.players[player.index].byproducts = nil
-        global.players[player.index].raw_resources = nil
-
-        local raw_resources_per_second = {}
-        local recipes_summary = {}
-        local recipes_buildings = {}
-        local byproducts = {}
-
-        -- now retrieve recipe
-        local recipe = player.force.recipes[recipe_name]
-        traverse(
-                player.force.recipes,
-                recipe,
-                recipe_ips,
-                recipes_summary,
-                raw_resources_per_second,
-                byproducts,
-                0,
-                1
-        )
-
-        recipes_buildings = get_buildings_per_recipe(player, recipes_summary)
-        -- persist results in global table
-        global.players[player.index].recipes_buildings = recipes_buildings
-        global.players[player.index].byproducts = byproducts
-        global.players[player.index].raw_resources = raw_resources_per_second
-        -- draw results
-        draw_results(player.index)
+        global.players[player.index].recipes_to_skip = {}
+        run_recipes(player)
     end
 end)
 
 
+script.on_event(defines.events.on_gui_checked_state_changed, function(event)
+    local player = game.get_player(event.player_index)
+    local recipe_name = event.element.name
+    if global.players[player.index].recipes_to_skip == nil then
+        global.players[player.index].recipes_to_skip = {}
+    end
+    global.players[player.index].recipes_to_skip[recipe_name] = true
+    run_recipes(player)
+end)

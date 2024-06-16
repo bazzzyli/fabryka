@@ -3,7 +3,7 @@ local function create_results_pane_tabs(player_index)
     local results_pane = player.gui.screen.main_frame.result_frame.results_pane
 
     local recipes_buildings_tab = results_pane.add { type = "tab", name = "recipes_tab", caption = "buildings per recipe" }
-    local recipes_buildings_flow = results_pane.add { type = "scroll-pane", name = "recipes_flow", direction = "vertical" }
+    local recipes_buildings_flow = results_pane.add { type = "scroll-pane", name = "recipes_flow"}
     results_pane.add_tab(recipes_buildings_tab, recipes_buildings_flow)
 
     local raw_resources_tab = results_pane.add { type = "tab", name = "raw_resources_tab", caption = "raw resources" }
@@ -19,7 +19,7 @@ function build_interface(player)
     local player_global = global.players[player.index]
     local screen_element = player.gui.screen
     local main_frame = screen_element.add { type = "frame", name = "main_frame", caption = "jebać leszczyxxxxx" }
-    main_frame.style.size = { 800, 1000 }
+    main_frame.style.size = { 1024, 1024 }
 
     player.opened = main_frame
 
@@ -90,7 +90,6 @@ function build_interface(player)
             end
         end
     end
-
     -- CONSTRAINTS DONE
 
     -- run button
@@ -101,7 +100,6 @@ function build_interface(player)
     local result_frame = main_frame.add { type = "frame", name = "result_frame", style = "content_frame", caption = "results:" }
     result_frame.add { type = "tabbed-pane", name = "results_pane" }
     create_results_pane_tabs(player.index)
-
 end
 
 function draw_results(player_index)
@@ -122,6 +120,7 @@ function draw_results(player_index)
     if recipes_buildings ~= nil then
         for recipe_name, v in pairs(recipes_buildings) do
             local single_recipe_flow = recipes_flow.add { type = "flow", direction = "horizontal" }
+            single_recipe_flow.add {type="checkbox", state=false, name=recipe_name}
             single_recipe_flow.add { type = "sprite", sprite = "recipe/" .. recipe_name }
             single_recipe_flow.add { type = "label", caption = game.recipe_prototypes[recipe_name].localised_name }
             single_recipe_flow.add { type = "label", caption = string.format("%.2f ips", tostring(v.items_per_second)) }
