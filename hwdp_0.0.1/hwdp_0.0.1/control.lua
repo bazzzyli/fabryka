@@ -150,9 +150,12 @@ end)
 script.on_event(defines.events.on_gui_checked_state_changed, function(event)
     local player = game.get_player(event.player_index)
     local recipe_name = event.element.name
-    if global.players[player.index].recipes_to_skip == nil then
-        global.players[player.index].recipes_to_skip = {}
+    local recipe = player.force.recipes[recipe_name]
+    if recipe ~= nil then
+        if global.players[player.index].recipes_to_skip == nil then
+            global.players[player.index].recipes_to_skip = {}
+        end
+        global.players[player.index].recipes_to_skip[recipe_name] = true
+        run_recipes(player)
     end
-    global.players[player.index].recipes_to_skip[recipe_name] = true
-    run_recipes(player)
 end)
