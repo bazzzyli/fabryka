@@ -16,7 +16,7 @@ local function create_results_pane_tabs(player_index)
 end
 
 function build_interface(player)
-    local player_global = global.players[player.index]
+    local player_global = storage.players[player.index]
     local screen_element = player.gui.screen
     local main_frame = screen_element.add { type = "frame", name = "main_frame", caption = "jebać leszczyxxxxx" }
     main_frame.style.size = { 1024, 1024 }
@@ -27,8 +27,8 @@ function build_interface(player)
     local controls_flow = content_frame.add { type = "flow", name = "controls_flow", direction = "vertical", style = "controls_flow" }
     local constraints_flow = content_frame.add { type = "scroll-pane", name = "constraints_flow", direction = "vertical" }
     -- get persisted search, if any
-    local recipe_name = global.players[player.index].selected_recipe
-    local recipe_ips = global.players[player.index].selected_ips or 0
+    local recipe_name = storage.players[player.index].selected_recipe
+    local recipe_ips = storage.players[player.index].selected_ips or 0
 
     -- search components
     controls_flow.add { type = "line" }
@@ -43,9 +43,9 @@ function build_interface(player)
     -- speed modules
     constraints_flow.add { type = "label", caption = "Choose highest speed module:" }
     local speed_modules = constraints_flow.add { type = "drop-down", name = "speed_modules" }
-    for i, s in ipairs(global.players[player.index].unlocked_speed_modules) do
+    for i, s in ipairs(storage.players[player.index].unlocked_speed_modules) do
         speed_modules.add_item(s, i)
-        if s == global.players[player.index].max_speed_module then
+        if s == storage.players[player.index].max_speed_module then
             speed_modules.selected_index = i
         end
     end
@@ -53,9 +53,9 @@ function build_interface(player)
     -- prod modules
     constraints_flow.add { type = "label", caption = "Choose highest productivity module:" }
     local productivity_modules = constraints_flow.add { type = "drop-down", name = "productivity_modules" }
-    for i, p in ipairs(global.players[player.index].unlocked_productivity_modules) do
+    for i, p in ipairs(storage.players[player.index].unlocked_productivity_modules) do
         productivity_modules.add_item(p, i)
-        if p == global.players[player.index].max_productivity_module then
+        if p == storage.players[player.index].max_productivity_module then
             productivity_modules.selected_index = i
         end
     end
@@ -63,9 +63,9 @@ function build_interface(player)
     -- beacons
     constraints_flow.add { type = "label", caption = "Choose highest beacon:" }
     local beacons = constraints_flow.add { type = "drop-down", name = "beacons" }
-    for i, s in ipairs(global.players[player.index].unlocked_beacons) do
+    for i, s in ipairs(storage.players[player.index].unlocked_beacons) do
         beacons.add_item(s, i)
-        if s == global.players[player.index].max_beacon then
+        if s == storage.players[player.index].max_beacon then
             beacons.selected_index = i
         end
     end
@@ -74,14 +74,14 @@ function build_interface(player)
 
     -- buildings
     constraints_flow.add { type = "label", caption = "Choose building for crafting category:" }
-    for category, buildings in pairs(global.players[player.index].crafting_category_building_map) do
+    for category, buildings in pairs(storage.players[player.index].crafting_category_building_map) do
         if #buildings > 1 then
             constraints_flow.add { type = "label", caption = category }
             local category_dropdown = constraints_flow.add { type = "drop-down", name = category }
             category_dropdown.items = buildings
-            if global.players[player.index].crafting_category_selected_building[category] ~= nil then
+            if storage.players[player.index].crafting_category_selected_building[category] ~= nil then
                 for i, building_name in ipairs(buildings) do
-                    if building_name == global.players[player.index].crafting_category_selected_building[category] then
+                    if building_name == storage.players[player.index].crafting_category_selected_building[category] then
                         category_dropdown.selected_index = i
                     end
                 end
@@ -104,9 +104,9 @@ end
 
 function draw_results(player_index)
     local player = game.get_player(player_index)
-    local recipes_buildings = global.players[player.index].recipes_buildings
-    local byproducts = global.players[player.index].byproducts
-    local raw_resources = global.players[player.index].raw_resources
+    local recipes_buildings = storage.players[player.index].recipes_buildings
+    local byproducts = storage.players[player.index].byproducts
+    local raw_resources = storage.players[player.index].raw_resources
 
     local results_pane = player.gui.screen.main_frame.result_frame.results_pane
     results_pane.clear()
@@ -122,12 +122,12 @@ function draw_results(player_index)
             local single_recipe_flow = recipes_flow.add { type = "flow", direction = "horizontal" }
             single_recipe_flow.add {type="checkbox", state=false, name=recipe_name}
             single_recipe_flow.add { type = "sprite", sprite = "recipe/" .. recipe_name }
-            single_recipe_flow.add { type = "label", caption = game.recipe_prototypes[recipe_name].localised_name }
+            single_recipe_flow.add { type = "label", caption = prototypes.recipe[recipe_name].localised_name }
             single_recipe_flow.add { type = "label", caption = string.format("%.2f ips", tostring(v.items_per_second)) }
             single_recipe_flow.add { type = "label", caption = string.format("crafted in: %d", v.n_buildings) }
             if v.building ~= BUILDING_NOT_RESEARCHED then
                 single_recipe_flow.add { type = "sprite", sprite = "item/" .. v.building }
-                single_recipe_flow.add { type = "label", caption = game.recipe_prototypes[v.building].localised_name }
+                single_recipe_flow.add { type = "label", caption = prototypes.recipe[v.building].localised_name }
             else
                 single_recipe_flow.add { type = "label", caption = BUILDING_NOT_RESEARCHED }
             end
@@ -140,13 +140,13 @@ function draw_results(player_index)
         for resource, amount in pairs(raw_resources) do
             local single_resource_flow = raw_resources_flow.add { type = "flow", direction = "horizontal" }
             local sprite_path = "item/" .. resource
-            if not player.gui.is_valid_sprite_path(sprite_path) then
+            if not helpers.is_valid_sprite_path(sprite_path) then
                 sprite_path = "fluid/" .. resource
             end
-            if player.gui.is_valid_sprite_path(sprite_path) then
+            if helpers.is_valid_sprite_path(sprite_path) then
                 single_resource_flow.add { type = "sprite", sprite = sprite_path }
             end
-            local prototype = game.item_prototypes[resource]
+            local prototype = prototypes.item[resource]
             local res_name
             if prototype then
                 res_name = { "", prototype.localised_name }
@@ -162,13 +162,13 @@ function draw_results(player_index)
         for prod_name, amount in pairs(byproducts) do
             local single_byproduct_flow = byproducts_flow.add { type = "flow", direction = "horizontal" }
             local sprite_path = "item/" .. prod_name
-            if not player.gui.is_valid_sprite_path(sprite_path) then
+            if not helpers.is_valid_sprite_path(sprite_path) then
                 sprite_path = "fluid/" .. prod_name
             end
-            if player.gui.is_valid_sprite_path(sprite_path) then
+            if helpers.is_valid_sprite_path(sprite_path) then
                 single_byproduct_flow.add { type = "sprite", sprite = sprite_path }
             end
-            local prototype = game.item_prototypes[prod_name]
+            local prototype = prototypes.item[prod_name]
             local res_name
             if prototype then
                 res_name = { "", prototype.localised_name }

@@ -54,7 +54,7 @@ function should_skip_recipe(player, recipe_name)
             return true
         end
     end
-    return global.players[player.index].recipes_to_skip[recipe_name] ~= nil
+    return storage.players[player.index].recipes_to_skip[recipe_name] ~= nil
 end
 
 function traverse(

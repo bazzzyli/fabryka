@@ -4,6 +4,11 @@ for _, recipe in pairs(game.player.force.recipes) do
     for _, p in pairs(recipe.products) do
         products[p.name] = p
     end
+    local allowed_effects = {}
+    for k,v in pairs(recipe.prototype.allowed_effects) do
+        allowed_effects[k] = v
+    end
+
     dict[recipe.name] = {
         name=recipe.name,
         category=recipe.category,
@@ -13,7 +18,8 @@ for _, recipe in pairs(game.player.force.recipes) do
         ingredients=recipe.ingredients,
         spid=recipe.energy,
         main_product=recipe.prototype.main_product,
-        enabled=recipe.enabled
+        enabled=recipe.enabled,
+        allowed_effects=allowed_effects
     }
 end
-game.write_file("recipes.json",game.table_to_json(dict))
+helpers.write_file("recipes.json",helpers.table_to_json(dict))
